@@ -19,7 +19,7 @@ string readFile(const string& filename) {
         cerr << "Failed to open file: " << filename << endl;
         return "";
     }
-
+    //ok test git
     ostringstream sstream;
     sstream << file.rdbuf();
     return sstream.str();
