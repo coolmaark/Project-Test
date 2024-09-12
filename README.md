@@ -10,3 +10,12 @@ cd vcpkg
 .\bootstrap-vcpkg.bat # Windows
 
 wget https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp -P include/nlohmann/
+
+
+sudo apt update
+sudo apt install libjsoncpp-dev
+
+
+
+g++ -o my_program generate_files.cpp -I/usr/include/jsoncpp -ljsoncpp -lhpdf
+./my_program
