@@ -32,7 +32,39 @@ Json::Value readJson(const string& filename) {
     return root;
 }
 
-// Function to generate a PDF with multiple tables from JSON data
+// Function to wrap text within a given width
+vector<string> wrapText(const string& text, HPDF_Font font, float font_size, float cell_width, HPDF_Page page) {
+    vector<string> lines;
+    string current_line;
+    istringstream words(text);
+    string word;
+
+    // Set font and size for accurate width calculation
+    HPDF_Page_SetFontAndSize(page, font, font_size);
+
+    while (words >> word) {
+        cout<<current_line<<"\n \n";
+        string test_line = current_line + " " + word;
+        // cout<<test_line.c_str()<<"\n";
+        // Check if the width of the text exceeds the cell width
+        // cout<<HPDF_Page_TextWidth(page, test_line.c_str())<<" "<<cell_width<<"\n";
+        if (HPDF_Page_TextWidth(page, test_line.c_str()) <= cell_width) {
+            current_line = test_line;
+        } else {
+            lines.push_back(current_line);  // Push the current line if it exceeds the width
+            current_line = word;  // Start a new line with the current word
+        }
+    }
+
+    // Add the last line
+    if (!current_line.empty()) {
+        lines.push_back(current_line);
+    }
+
+    return lines;
+}
+
+// Function to generate a PDF with multiple tables from JSON data with borders and text wrapping
 void generatePDFWithTables(const Json::Value& jsonData, const string& pdf_filename) {
     HPDF_Doc pdf = HPDF_New(error_handler, NULL);
     if (!pdf) {
@@ -45,7 +77,8 @@ void generatePDFWithTables(const Json::Value& jsonData, const string& pdf_filena
 
     // Set font for the text
     HPDF_Font font = HPDF_GetFont(pdf, "Helvetica", NULL);
-    HPDF_Page_SetFontAndSize(page, font, 12);
+    float font_size = 12;
+    HPDF_Page_SetFontAndSize(page, font, font_size);
 
     // Get page dimensions and define margin for the border
     float page_width = HPDF_Page_GetWidth(page);
@@ -58,53 +91,74 @@ void generatePDFWithTables(const Json::Value& jsonData, const string& pdf_filena
     HPDF_Page_Rectangle(page, margin - 20, margin, page_width + 30 - 2 * margin, page_height + 25 - 2 * margin);
     HPDF_Page_Stroke(page);
 
-    // Start writing the tables inside the page
-    HPDF_Page_BeginText(page);
-    HPDF_Page_MoveTextPos(page, margin, page_height - margin - 20);
-
     float current_y_position = page_height - margin - 20;
     float line_height = 18;
+    float cell_padding = 5;
+    float col_width = (page_width - 2 * margin) / 2;  // 2 columns for key-value pairs
 
-    // Loop over tables in JSON data
+    // Loop over the table(s) in the JSON data
     for (const auto& table : jsonData) {
-        // Check if the current element is an object with "name" and "rows" fields
-        if (!table.isMember("name") || !table.isMember("rows")) {
-            cerr << "Invalid table format in JSON." << endl;
-            continue;
-        }
-
-        // Draw table name or heading
-        string table_name = table["name"].asString();
-        HPDF_Page_ShowText(page, ("Table: " + table_name).c_str());
-        HPDF_Page_MoveTextPos(page, 0, -line_height);
-        current_y_position -= line_height;
-
-        // Draw table rows
         const Json::Value& rows = table["rows"];
+
+        // Loop over the rows in the table
         for (const auto& row : rows) {
-            string row_content;
+            float max_cell_height = 0;
+            vector<vector<string>> wrapped_lines;
+
+            // First pass: calculate the maximum height for the row based on text wrapping
             for (const auto& cell : row) {
-                row_content += cell.asString() + "   ";  // Add some spacing between cells
+                string cell_content = cell.asString();
+                vector<string> wrapped = wrapText(cell_content, font, font_size, col_width - 2 * cell_padding + 23, page);
+                wrapped_lines.push_back(wrapped);
+
+                // Calculate cell height for the current content and update the max height
+                float cell_height = (wrapped.size() * line_height) + 2 * cell_padding;
+                if (cell_height > max_cell_height) {
+                    max_cell_height = cell_height;
+                }
             }
 
-            if (current_y_position - line_height < margin) {
-                break;  // Stop writing if no space left
+            float x_position = margin;  // Starting x position for each row
+
+            // Second pass: draw the key-value pair (two cells per row) and ensure equal height
+            for (int i = 0; i < row.size(); ++i) {
+                const auto& wrapped = wrapped_lines[i];
+                string cell_content = row[i].asString();
+
+                // Draw border for each cell with max row height
+                HPDF_Page_SetLineWidth(page, 1.0);
+                HPDF_Page_Rectangle(page, x_position, current_y_position - max_cell_height, col_width, max_cell_height);
+                HPDF_Page_Stroke(page);
+
+                // Draw text inside the cell with padding
+                float text_y_position = current_y_position - cell_padding - line_height;
+                for (const auto& line : wrapped) {
+                    HPDF_Page_BeginText(page);
+                    HPDF_Page_MoveTextPos(page, x_position + cell_padding, text_y_position);
+                    HPDF_Page_ShowText(page, line.c_str());
+                    HPDF_Page_EndText(page);
+                    text_y_position -= line_height;  // Move down for the next wrapped line
+                }
+
+                x_position += col_width;  // Move to the next column (value)
             }
 
-            HPDF_Page_ShowText(page, row_content.c_str());
-            HPDF_Page_MoveTextPos(page, 0, -line_height);
-            current_y_position -= line_height;
+            // Move down by the max height of the current row
+            current_y_position -= max_cell_height;
+
+            // Stop writing if no space left on the page
+            if (current_y_position - max_cell_height < margin) {
+                break;
+            }
         }
 
-        HPDF_Page_MoveTextPos(page, 0, -line_height);  // Add space between tables
-        current_y_position -= line_height;
+        current_y_position -= line_height;  // Add space between tables (if more than one)
     }
 
-    HPDF_Page_EndText(page);
     HPDF_SaveToFile(pdf, pdf_filename.c_str());
     HPDF_Free(pdf);
 
-    cout << "PDF with tables created successfully: " << pdf_filename << endl;
+    cout << "PDF with tables and properly aligned cells created successfully: " << pdf_filename << endl;
 }
 
 int main() {
