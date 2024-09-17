@@ -174,7 +174,7 @@ private:
         HPDF_Page_SetFontAndSize(page, font, 20);
         float name_Text_Width = HPDF_Page_TextWidth(page, "Name_Head");
         HPDF_Page_MoveTextPos(page, (page_width / 2) - (name_Text_Width / 2), page_height - 70);
-        HPDF_Page_ShowText(page, "Nmae_Head");
+        HPDF_Page_ShowText(page, "Name_Head");
         HPDF_Page_EndText(page);
     }
 
