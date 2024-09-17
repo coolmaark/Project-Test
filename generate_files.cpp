@@ -43,27 +43,19 @@ vector<string> wrapText(const string& text, HPDF_Font font, float font_size, flo
     HPDF_Page_SetFontAndSize(page, font, font_size);
 
     while (words >> word) {
-        // cout<<word<<"\n";
         string test_line = current_line + " " + word;
-        // cout<<test_line<<"\n ------------ \n";
-        // cout<<test_line.c_str()<<"\n";
-        // Check if the width of the text exceeds the cell width
-        // cout<<HPDF_Page_TextWidth(page, test_line.c_str())<<" "<<cell_width<<"\n";
-        if (HPDF_Page_TextWidth(page, test_line.c_str()) <= cell_width/7) {
+        if (HPDF_Page_TextWidth(page, test_line.c_str()) <= cell_width / 6) {
             current_line = test_line;
         } else {
-            // cout<<current_line<<"\n \n";
             string break_line = "";
-            for(auto &it:current_line){
-                break_line+=it;
-                if(break_line.size()>cell_width/7){
-                    // cout<<break_line<<"\n \n";
+            for (auto &it : current_line) {
+                break_line += it;
+                if (break_line.size() > cell_width / 6) {
                     lines.push_back(break_line);
-                    break_line="";
+                    break_line = "";
                 }
             }
             current_line = break_line;
-            // cout<<break_line;
             lines.push_back(current_line);  // Push the current line if it exceeds the width
             current_line = word;  // Start a new line with the current word
         }
@@ -71,51 +63,10 @@ vector<string> wrapText(const string& text, HPDF_Font font, float font_size, flo
 
     // Add the last line
     if (!current_line.empty()) {
-        // cout<<"This is check" << current_line <<"\n";
         lines.push_back(current_line);
     }
 
     return lines;
-}
-
-// jsoncpp header
-
-// using namespace std;
-
-// Function to add images on the first page and centered text between them
-// Inside addImagesAndCenteredText function
-void addImagesAndCenteredText(HPDF_Doc pdf, HPDF_Page page, const string& left_image_path, const string& right_image_path, const string& header_text, HPDF_Font font, float font_size, float margin) {
-    // Load images
-    HPDF_Image left_image = HPDF_LoadJpegImageFromFile(pdf, left_image_path.c_str());
-    HPDF_Image right_image = HPDF_LoadJpegImageFromFile(pdf, right_image_path.c_str());
-
-    if (!left_image || !right_image) {
-        cerr << "Failed to load images." << endl;
-        return;
-    }
-
-    // Get page width and image dimensions
-    float page_width = HPDF_Page_GetWidth(page);
-    float page_height = HPDF_Page_GetHeight(page);
-    
-    float image_width = 80;   // Adjust as needed
-    float image_height = 80;  // Adjust as needed
-
-    // Position and draw the images
-    float left_image_x = margin;  // Top left corner
-    float right_image_x = page_width - margin - image_width;  // Top right corner
-    float image_y = page_height - margin - image_height;  // Vertically near the top
-
-    HPDF_Page_DrawImage(page, left_image, left_image_x, image_y, image_width, image_height);
-    HPDF_Page_DrawImage(page, right_image, right_image_x, image_y, image_width, image_height);
-
-    // Add centered text between the images
-    HPDF_Page_BeginText(page);  // Corrected: Added 'page' argument
-    HPDF_Page_SetFontAndSize(page, font, font_size);
-    float text_width = HPDF_Page_TextWidth(page, header_text.c_str());
-    HPDF_Page_MoveTextPos(page, (page_width / 2) - (text_width / 2), image_y + (image_height / 2));  // Centered text in the middle of the images
-    HPDF_Page_ShowText(page, header_text.c_str());
-    HPDF_Page_EndText(page);  // Corrected: Added 'page' argument
 }
 
 // Inside addNewPage function
@@ -125,7 +76,7 @@ void addNewPage(HPDF_Doc pdf, HPDF_Page &page, HPDF_Font font, float font_size, 
     HPDF_Page_SetSize(page, HPDF_PAGE_SIZE_A4, HPDF_PAGE_PORTRAIT);
 
     // Set font for the new page
-    HPDF_Page_SetFontAndSize(page, font, font_size);
+    HPDF_Page_SetFontAndSize(page, font, 12);
 
     // Reset the current y position for the new page
     current_y_position = HPDF_Page_GetHeight(page) - margin - 20;
@@ -147,7 +98,7 @@ void addNewPage(HPDF_Doc pdf, HPDF_Page &page, HPDF_Font font, float font_size, 
     page_num_str << "Page " << page_number;
 
     HPDF_Page_BeginText(page);
-    HPDF_Page_SetFontAndSize(page, font, 10);
+    HPDF_Page_SetFontAndSize(page, font, 12);
     float text_width = HPDF_Page_TextWidth(page, page_num_str.str().c_str());
     float text_x_position = (page_width / 2) - (text_width / 2);  // Center the page number horizontally
     float text_y_position = margin - 10 - padding;  // Adjust vertically with padding
@@ -156,7 +107,6 @@ void addNewPage(HPDF_Doc pdf, HPDF_Page &page, HPDF_Font font, float font_size, 
     HPDF_Page_ShowText(page, page_num_str.str().c_str());
     HPDF_Page_EndText(page);
 }
-
 
 // Function to generate a PDF with multiple tables from JSON data with borders, text wrapping, and page numbers
 void generatePDFWithTables(const Json::Value& jsonData, const string& pdf_filename) {
@@ -193,11 +143,25 @@ void generatePDFWithTables(const Json::Value& jsonData, const string& pdf_filena
     // Add the first page number
     HPDF_Page_BeginText(page);
     HPDF_Page_SetFontAndSize(page, font, 10);
-    HPDF_Page_MoveTextPos(page, (page_width / 2) - 20, margin - 10);  // Center the page number
+    HPDF_Page_MoveTextPos(page, (page_width / 2) - 20, margin - 10 - 20);  // Center the page number
     HPDF_Page_ShowText(page, ("Page " + std::to_string(page_number)).c_str());
     HPDF_Page_EndText(page);
 
-    float current_y_position = page_height - margin - 80;
+    // Load and place images on the top left and top right
+    HPDF_Image img_left = HPDF_LoadJpegImageFromFile(pdf, "left_image.jpeg");
+    HPDF_Image img_right = HPDF_LoadJpegImageFromFile(pdf, "left_image.jpeg");
+    HPDF_Page_DrawImage(page, img_left, margin, page_height - 110, 60, 60);  // Adjust position and size
+    HPDF_Page_DrawImage(page, img_right, page_width - margin - 80, page_height - 110, 60, 60);
+
+    // Add "Hello" text in the top middle between the images
+    HPDF_Page_BeginText(page);
+    HPDF_Page_SetFontAndSize(page, font, 20);
+    float hello_text_width = HPDF_Page_TextWidth(page, "Hello");
+    HPDF_Page_MoveTextPos(page, (page_width / 2) - (hello_text_width / 2), page_height - 70);  // Adjust position
+    HPDF_Page_ShowText(page, "Hello");
+    HPDF_Page_EndText(page);
+
+    float current_y_position = page_height - margin - 120;  // Adjust after placing images and text
     float line_height = 18;
     float cell_padding = 5;
     float col_width = (page_width - 2 * margin) / 2;  // 2 columns for key-value pairs
@@ -266,7 +230,7 @@ void generatePDFWithTables(const Json::Value& jsonData, const string& pdf_filena
     HPDF_SaveToFile(pdf, pdf_filename.c_str());
     HPDF_Free(pdf);
 
-    cout << "PDF with tables and page numbers created successfully: " << pdf_filename << endl;
+    cout << "PDF with tables, page numbers, images, and hello text created successfully: " << pdf_filename << endl;
 }
 
 int main() {
