@@ -34,7 +34,7 @@ public:
                 for (auto &it : current_line)
                 {
                     break_line += it;
-                    if (break_line.size() > cell_width / 6)
+                    if (break_line.size() > cell_width / 5)
                     {
                         lines.push_back(break_line);
                         break_line = "";
@@ -206,24 +206,59 @@ private:
     void drawRow(const Json::Value &row, const vector<vector<string>> &wrapped_lines, float y_position, float max_cell_height)
     {
         float x_position = margin;
+        HPDF_Font font_bold = HPDF_GetFont(pdf, "Helvetica-Bold", NULL); // Load bold font
+        HPDF_Font font_regular = HPDF_GetFont(pdf, "Helvetica", NULL);   // Regular font
+
         for (int i = 0; i < row.size(); ++i)
         {
             const auto &wrapped = wrapped_lines[i];
             float cell_width = (i == 0) ? key_col_width : value_col_width;
+
+            // Draw the cell borders
             HPDF_Page_SetLineWidth(page, 1.0);
             HPDF_Page_Rectangle(page, x_position, y_position - max_cell_height, cell_width, max_cell_height);
             HPDF_Page_Stroke(page);
 
+            // Adjust text position within the cell
             float text_y_position = y_position - cell_padding - line_height;
+
             for (const auto &line : wrapped)
             {
                 HPDF_Page_BeginText(page);
+
+                // Check if this is the status column (assuming it's in the 2nd column, index 1)
+                if (i == 1 && (line == " pass" || line == " fail" || line == " Pass" || line == " Fail"))
+                {
+                    // Apply green color and bold font for "pass"
+                    if (line == " pass" || line == " Pass")
+                    {
+                        HPDF_Page_SetRGBFill(page, 0, 0.5, 0);                  // Green
+                        HPDF_Page_SetFontAndSize(page, font_bold, font_size); // Bold
+                    }
+                    // Apply red color and bold font for "fail"
+                    else if (line == " fail" || line == " Fail")
+                    {
+                        HPDF_Page_SetRGBFill(page, 0.5, 0, 0);                  // Red
+                        HPDF_Page_SetFontAndSize(page, font_bold, font_size); // Bold
+                    }
+                }
+                else
+                {
+                    // Normal text (default black and regular font)
+                    HPDF_Page_SetRGBFill(page, 0, 0, 0);                     // Black
+                    HPDF_Page_SetFontAndSize(page, font_regular, font_size); // Regular font
+                }
+
+                // Write the text line in the cell
                 HPDF_Page_MoveTextPos(page, x_position + cell_padding, text_y_position);
                 HPDF_Page_ShowText(page, line.c_str());
+
                 HPDF_Page_EndText(page);
-                text_y_position -= line_height;
+
+                text_y_position -= line_height; // Move to the next line within the cell
             }
-            x_position += cell_width;
+
+            x_position += cell_width; // Move to the next column
         }
     }
 };
