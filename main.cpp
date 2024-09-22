@@ -11,16 +11,19 @@
 #include <fcntl.h>  // For fcntl to make socket non-blocking
 
 using json = nlohmann::json;
-std::vector<json> received_data;
+
+using namespace std;  // Add this line to use the std namespace
+
+vector<json> received_data;
 bool running = true;
 
 // Signal handler for Ctrl+C (SIGINT)
 void signal_handler(int signal) {
     if (signal == SIGINT) {
-        std::cout << "\nCtrl+C pressed. Saving data to data.json...\n";
+        cout << "\nCtrl+C pressed. Saving data to data.json...\n";
 
         // Open the file for writing
-        std::ofstream file("data.json");
+        ofstream file("data.json");
         if (file.is_open()) {
             file << "[\n";
             for (size_t i = 0; i < received_data.size(); ++i) {
@@ -31,16 +34,16 @@ void signal_handler(int signal) {
             }
             file << "\n]";
             file.close();
-            std::cout << "Data saved to data.json successfully.\n";
+            cout << "Data saved to data.json successfully.\n";
         } else {
-            std::cerr << "Failed to open data.json for writing.\n";
+            cerr << "Failed to open data.json for writing.\n";
         }
 
         // Run the generate_files command
         if (fork() == 0) {  // Create a new process
             execlp("./generate_files", "generate_files", "data.json", "output.pdf", nullptr);
             // If execlp fails
-            std::cerr << "Failed to execute generate_files.\n";
+            cerr << "Failed to execute generate_files.\n";
             exit(1);
         } else {
             wait(nullptr);  // Wait for the child process to finish
@@ -61,7 +64,7 @@ int main() {
 
     // Create UDP socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        std::cerr << "Failed to create socket.\n";
+        cerr << "Failed to create socket.\n";
         return -1;
     }
 
@@ -73,7 +76,7 @@ int main() {
 
     // Bind the socket to port 12345
     if (bind(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        std::cerr << "Bind failed.\n";
+        cerr << "Bind failed.\n";
         close(sockfd);
         return -1;
     }
@@ -81,17 +84,17 @@ int main() {
     // Make the socket non-blocking
     int flags = fcntl(sockfd, F_GETFL, 0);
     if (flags == -1) {
-        std::cerr << "Failed to get socket flags.\n";
+        cerr << "Failed to get socket flags.\n";
         close(sockfd);
         return -1;
     }
     if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        std::cerr << "Failed to set socket to non-blocking.\n";
+        cerr << "Failed to set socket to non-blocking.\n";
         close(sockfd);
         return -1;
     }
 
-    std::cout << "UDP server is listening on port 12345 (non-blocking mode)...\n";
+    cout << "UDP server is listening on port 12345 (non-blocking mode)...\n";
 
     // Main loop to receive data
     while (running) {
@@ -100,20 +103,20 @@ int main() {
         
         if (n > 0) {
             buffer[n] = '\0';  // Null-terminate the buffer
-            std::string received(buffer);
+            string received(buffer);
 
             try {
                 // Parse received JSON and add to the list
                 json data = json::parse(received);
                 received_data.push_back(data);
 
-                std::cout << "Received data: " << data.dump(4) << std::endl;
+                cout << "Received data: " << data.dump(4) << endl;
             } catch (json::parse_error& e) {
-                std::cerr << "Error parsing JSON: " << e.what() << std::endl;
+                cerr << "Error parsing JSON: " << e.what() << endl;
             }
         } else if (n == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
             // Handle error, except for "would block" or "try again" errors (which are expected in non-blocking sockets)
-            std::cerr << "Error receiving data: " << strerror(errno) << std::endl;
+            cerr << "Error receiving data: " << strerror(errno) << endl;
         }
 
         // Small sleep to prevent busy looping when no data is available
@@ -123,6 +126,6 @@ int main() {
     // Close the socket
     close(sockfd);
 
-    std::cout << "Server has been shut down.\n";
+    cout << "Server has been shut down.\n";
     return 0;
 }
