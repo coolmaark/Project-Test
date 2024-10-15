@@ -30,7 +30,7 @@ public:
             // If the current line + word fits in the cell width, add the word
             if (HPDF_Page_TextWidth(page, test_line.c_str()) <= cell_width)
             {
-                    
+
                 current_line = test_line;
             }
             else
@@ -198,6 +198,62 @@ private:
         page_number++;
     }
 
+    float calculateTotalHeightForArray(const vector<string> &array_data)
+    {
+        float total_height = 0.0f;
+        for (const auto &item : array_data)
+        {
+            vector<string> row_data = {item}; // Treat each array element as a row
+            vector<vector<string>> wrapped_lines;
+            float cell_height = wrapTextInRow(row_data, wrapped_lines);
+            total_height += cell_height;
+        }
+        return total_height;
+    }
+    void drawArrayRowWithBorder(const string &key, const vector<string> &array_data, float y_position, float total_cell_height)
+    {
+        float x_position = margin;
+        const float light_pink[] = {1.0f, 0.8f, 0.8f}; // Light pink color
+
+        // Set background color for key column (light pink)
+        HPDF_Page_SetRGBFill(page, light_pink[0], light_pink[1], light_pink[2]);
+        HPDF_Page_Rectangle(page, x_position, y_position - total_cell_height, key_col_width, total_cell_height); // Key column background
+        HPDF_Page_Fill(page);
+
+        // Draw the border around the key column
+        HPDF_Page_SetLineWidth(page, 1.0f);
+        HPDF_Page_Rectangle(page, x_position, y_position - total_cell_height, key_col_width, total_cell_height); // Key column border
+        HPDF_Page_Stroke(page);
+
+        // Print the key (once)
+        HPDF_Page_BeginText(page);
+        HPDF_Page_SetFontAndSize(page, font, font_size);
+        HPDF_Page_MoveTextPos(page, x_position + cell_padding, y_position - cell_padding - line_height);
+        HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f); // Black color for text
+        HPDF_Page_ShowText(page, key.c_str());
+        HPDF_Page_EndText(page);
+
+        // Move to the value column position
+        x_position += key_col_width;
+
+        // Draw the border around the value column
+        HPDF_Page_Rectangle(page, x_position, y_position - total_cell_height, value_col_width, total_cell_height); // Value column border
+        HPDF_Page_Stroke(page);
+
+        // Draw the array values inside the value column (no background fill, just text and border)
+        float text_y_position = y_position - cell_padding - line_height;
+        for (const auto &array_item : array_data)
+        {
+            HPDF_Page_BeginText(page);
+            HPDF_Page_SetFontAndSize(page, font, font_size);
+            HPDF_Page_MoveTextPos(page, x_position + cell_padding, text_y_position);
+            HPDF_Page_ShowText(page, array_item.c_str());
+            HPDF_Page_EndText(page);
+
+            text_y_position -= line_height + cell_padding; // Move down for the next array item
+        }
+    }
+
     void drawTableForEntry(const json &entry)
     {
         const vector<string> keys = {"cmd_name", "data", "range", "status", "input_other", "output_other"};
@@ -209,28 +265,49 @@ private:
                 vector<string> row_data;
                 row_data.push_back(key);
 
+                // Handle string values
                 if (entry[key].is_string())
                 {
                     row_data.push_back(entry[key].get<string>());
+
+                    // Wrap text and calculate max cell height
+                    vector<vector<string>> wrapped_lines;
+                    float max_cell_height = wrapTextInRow(row_data, wrapped_lines);
+
+                    // Check if we need a new page due to height
+                    if (current_y_position - max_cell_height < margin)
+                    {
+                        addNewPage();
+                    }
+
+                    // Draw the row
+                    drawRow(row_data, wrapped_lines, current_y_position, max_cell_height);
+                    current_y_position -= max_cell_height; // Move down for the next row
                 }
+                // Handle array values - print key once, no individual borders for array items, but border for the whole block
                 else if (entry[key].is_array())
                 {
-                    row_data.push_back(formatArray(entry[key])); // Format array to string
+                    vector<string> array_data;
+                    for (const auto &item : entry[key])
+                    {
+                        array_data.push_back(item.get<string>());
+                    }
+
+                    // Calculate total height for all array items
+                    float total_cell_height = calculateTotalHeightForArray(array_data);
+
+                    // If current page doesn't have enough space, add a new page
+                    if (current_y_position - total_cell_height < margin)
+                    {
+                        addNewPage();
+                    }
+
+                    // Draw the block with a border for the key and the array values
+                    drawArrayRowWithBorder(key, array_data, current_y_position, total_cell_height);
+
+                    // Move down after drawing
+                    current_y_position -= total_cell_height;
                 }
-
-                // Wrap text and calculate max cell height
-                vector<vector<string>> wrapped_lines;
-                float max_cell_height = wrapTextInRow(row_data, wrapped_lines);
-
-                // Check if we need a new page due to height
-                if (current_y_position - max_cell_height < margin)
-                {
-                    addNewPage();
-                }
-
-                // Draw the row
-                drawRow(row_data, wrapped_lines, current_y_position, max_cell_height);
-                current_y_position -= max_cell_height; // Move down for the next row
             }
         }
 
@@ -242,7 +319,8 @@ private:
         string combined;
         for (const auto &item : array)
         {
-            combined += item.get<string>() + "\n"; // Ensure items are separated by newlines
+            // Add each item followed by a newline character
+            combined += item.get<string>() + "\n \n";
         }
         return combined;
     }
@@ -298,7 +376,7 @@ private:
                 HPDF_Page_Fill(page);                         // Fill the cell with the color
                 HPDF_Page_SetRGBFill(page, 0.0f, 0.0f, 0.0f); // Reset to black for text
             }
-            
+
             else
             {
                 HPDF_Page_SetLineWidth(page, 1.0f);
@@ -352,6 +430,7 @@ int main(int argc, char *argv[])
 
         PDFDocument pdfDocument(pdf_filename);
         pdfDocument.generatePDF(jsonData);
+        cout << "PDF generated sucessfully\n";
     }
     catch (const runtime_error &e)
     {

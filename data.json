@@ -1,7 +1,7 @@
 [
 {
     "cmd_name": "Test Command",
-    "data": "datajkandlkcandslkcnalskdcnlskadcnlsakdcnslkdcnlxmclksamclksdnckdncslkdcnslakdcnlkansdclkndaslckmlkmlkmxlaskdmnflkndckjnsdcjksndcjk",
+    "data": "Some datajkandlkcandslkcnalskdcnlskadcnlsakdcnslkdcnlxmclksamclksdnckdncslkdcnslakdcnlkansdclkndaslckmlkmlkmxlaskdmnflkndckjnsdcjksndcjk",
     "input_other": [
         "Input 1",
         "Input 2"
@@ -11,7 +11,21 @@
         "Output 2"
     ],
     "range": "0-100",
-    "status": "Pass"
+    "status": "OK"
+},
+{
+    "cmd_name": "Test Command",
+    "data": "Some datajkandlkcandslkcnalskdcnlskadcnlsakdcnslkdcnlxmclksamclksdnckdncslkdcnslakdcnlkansdclkndaslckmlkmlkmxlaskdmnflkndckjnsdcjksndcjk",
+    "input_other": [
+        "Input 1",
+        "Input 2"
+    ],
+    "output_other": [
+        "Output 1",
+        "Output 2"
+    ],
+    "range": "0-100",
+    "status": "OK"
 },
 {
     "cmd_name": "Test Command",
